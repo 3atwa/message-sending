@@ -6,14 +6,22 @@ import {
   Grid, 
   Card, 
   CardContent, 
-  CardHeader,
   List,
   ListItem,
   ListItemText,
   Divider,
-  CircularProgress
+  CircularProgress,
+  Alert,
+  Chip
 } from '@mui/material';
-import { Email, WhatsApp, Contacts, Person } from '@mui/icons-material';
+import { 
+  Email, 
+  WhatsApp, 
+  Contacts, 
+  Person,
+  TrendingUp,
+  Message as MessageIcon
+} from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -28,6 +36,7 @@ const Dashboard: React.FC = () => {
   });
   const [recentMessages, setRecentMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -76,7 +85,8 @@ const Dashboard: React.FC = () => {
       });
 
       setRecentMessages(messages?.slice(0, 5) || []);
-    } catch (error) {
+    } catch (error: any) {
+      setError(`Error loading dashboard: ${error.message}`);
       console.error('Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
@@ -86,94 +96,152 @@ const Dashboard: React.FC = () => {
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-        <CircularProgress />
+        <CircularProgress size={40} />
       </Box>
     );
   }
 
+  if (error) {
+    return (
+      <Alert severity="error" sx={{ mb: 3 }}>
+        {error}
+      </Alert>
+    );
+  }
+
+  const statCards = [
+    {
+      title: 'Total Contacts',
+      value: stats.totalContacts,
+      icon: <Contacts sx={{ fontSize: 40 }} />,
+      color: 'primary.main',
+      bgColor: 'primary.light',
+    },
+    {
+      title: 'Total Messages',
+      value: stats.totalMessages,
+      icon: <MessageIcon sx={{ fontSize: 40 }} />,
+      color: 'info.main',
+      bgColor: 'info.light',
+    },
+    {
+      title: 'Emails Sent',
+      value: stats.emailsSent,
+      icon: <Email sx={{ fontSize: 40 }} />,
+      color: 'secondary.main',
+      bgColor: 'secondary.light',
+    },
+    {
+      title: 'WhatsApp Messages',
+      value: stats.whatsappSent,
+      icon: <WhatsApp sx={{ fontSize: 40 }} />,
+      color: 'success.main',
+      bgColor: 'success.light',
+    },
+  ];
+
+  if (isAdmin()) {
+    statCards.push({
+      title: 'Total Users',
+      value: stats.totalUsers,
+      icon: <Person sx={{ fontSize: 40 }} />,
+      color: 'warning.main',
+      bgColor: 'warning.light',
+    });
+  }
+
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>Dashboard</Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
+        <TrendingUp sx={{ fontSize: 32, mr: 2, color: 'primary.main' }} />
+        <Typography variant="h4" sx={{ fontWeight: 600 }}>
+          Dashboard
+        </Typography>
+      </Box>
       
       <Grid container spacing={3}>
         {/* Stats Cards */}
-        <Grid item xs={12} sm={6} md={3} component="div">
-          <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <Contacts sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
-              <Typography variant="h4">{stats.totalContacts}</Typography>
-              <Typography variant="body1" color="textSecondary">Total Contacts</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        
-        <Grid item xs={12} sm={6} md={3} component="div">
-          <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <Email sx={{ fontSize: 48, color: 'info.main', mb: 1 }} />
-              <Typography variant="h4">{stats.emailsSent}</Typography>
-              <Typography variant="body1" color="textSecondary">Emails Sent</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        
-        <Grid item xs={12} sm={6} md={3} component="div">
-          <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <WhatsApp sx={{ fontSize: 48, color: 'success.main', mb: 1 }} />
-              <Typography variant="h4">{stats.whatsappSent}</Typography>
-              <Typography variant="body1" color="textSecondary">WhatsApp Messages</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        
-        {isAdmin() && (
-          <Grid item xs={12} sm={6} md={3} component="div">
-            <Card>
-              <CardContent sx={{ textAlign: 'center' }}>
-                <Person sx={{ fontSize: 48, color: 'secondary.main', mb: 1 }} />
-                <Typography variant="h4">{stats.totalUsers}</Typography>
-                <Typography variant="body1" color="textSecondary">Total Users</Typography>
+        {statCards.map((stat, index) => (
+          <Grid item xs={12} sm={6} md={isAdmin() ? 2.4 : 3} key={index}>
+            <Card 
+              sx={{ 
+                borderRadius: 2,
+                background: `linear-gradient(135deg, ${stat.bgColor}20 0%, ${stat.bgColor}10 100%)`,
+                border: `1px solid ${stat.bgColor}30`,
+              }}
+            >
+              <CardContent sx={{ textAlign: 'center', p: 3 }}>
+                <Box sx={{ color: stat.color, mb: 2 }}>
+                  {stat.icon}
+                </Box>
+                <Typography variant="h3" sx={{ fontWeight: 700, color: stat.color, mb: 1 }}>
+                  {stat.value}
+                </Typography>
+                <Typography variant="body1" color="textSecondary" sx={{ fontWeight: 500 }}>
+                  {stat.title}
+                </Typography>
               </CardContent>
             </Card>
           </Grid>
-        )}
+        ))}
         
         {/* Recent Messages */}
-        <Grid item xs={12} component="div">
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>Recent Messages</Typography>
+        <Grid item xs={12}>
+          <Paper sx={{ p: 3, borderRadius: 2 }}>
+            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+              Recent Messages
+            </Typography>
             {recentMessages.length === 0 ? (
-              <Typography variant="body1" color="textSecondary" sx={{ p: 2 }}>
-                No messages sent yet
-              </Typography>
+              <Box sx={{ textAlign: 'center', p: 4 }}>
+                <MessageIcon sx={{ fontSize: 48, color: 'grey.400', mb: 2 }} />
+                <Typography variant="h6" color="textSecondary" gutterBottom>
+                  No messages sent yet
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  Start by composing your first message in the Messaging section
+                </Typography>
+              </Box>
             ) : (
               <List>
                 {recentMessages.map((message, index) => (
                   <React.Fragment key={message.id}>
-                    <ListItem alignItems="flex-start">
+                    <ListItem alignItems="flex-start" sx={{ px: 0 }}>
                       <ListItemText
                         primary={
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography variant="subtitle1">
-                              Sent via: {message.sent_via.map((via: string) => via.toUpperCase()).join(', ')}
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                              Message to {message.recipients.length} recipient(s)
                             </Typography>
+                            <Box sx={{ display: 'flex', gap: 0.5 }}>
+                              {message.sent_via.map((via: string) => (
+                                <Chip
+                                  key={via}
+                                  icon={getChannelIcon(via)}
+                                  label={via.toUpperCase()}
+                                  size="small"
+                                  variant="outlined"
+                                  sx={{ borderRadius: 1 }}
+                                />
+                              ))}
+                            </Box>
                             <Typography variant="body2" color="textSecondary">
                               {new Date(message.sent_at).toLocaleString()}
                             </Typography>
                           </Box>
                         }
                         secondary={
-                          <>
-                            <Typography
-                              component="span"
-                              variant="body2"
-                              color="text.primary"
-                            >
-                              To {message.recipients.length} recipient(s)
-                            </Typography>
-                            {" — " + message.content.substring(0, 100) + (message.content.length > 100 ? '...' : '')}
-                          </>
+                          <Typography
+                            variant="body2"
+                            color="text.primary"
+                            sx={{ 
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            {message.content}
+                          </Typography>
                         }
                       />
                     </ListItem>

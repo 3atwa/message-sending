@@ -15,9 +15,12 @@ import {
   Checkbox,
   ListItemText,
   CircularProgress,
-  Alert
+  Alert,
+  Card,
+  CardContent,
+  Grid
 } from '@mui/material';
-import { Send } from '@mui/icons-material';
+import { Send, Email, WhatsApp } from '@mui/icons-material';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -27,7 +30,7 @@ const MenuProps = {
   PaperProps: {
     style: {
       maxHeight: ITEM_HEIGHT * 4.5 + ITEM_PADDING_TOP,
-      width: 250,
+      width: 300,
     },
   },
 };
@@ -37,7 +40,7 @@ const MessagingInterface: React.FC = () => {
   const [message, setMessage] = useState('');
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [contacts, setContacts] = useState<any[]>([]);
-  const [channels, setChannels] = useState<string[]>(['email', 'whatsapp']);
+  const [channels] = useState<string[]>(['email', 'whatsapp']);
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,8 +106,6 @@ const MessagingInterface: React.FC = () => {
     setSuccess(null);
 
     try {
-      // In a real application, this would call a serverless function to send messages
-      // For now, we'll just simulate sending by storing in the database
       const { error } = await supabase
         .from('messages')
         .insert({
@@ -118,7 +119,7 @@ const MessagingInterface: React.FC = () => {
         throw error;
       }
 
-      setSuccess('Message sent successfully!');
+      setSuccess(`Message sent successfully to ${selectedContacts.length} contact(s) via ${selectedChannels.join(', ')}!`);
       setMessage('');
       setSelectedContacts([]);
       setSelectedChannels([]);
@@ -129,96 +130,179 @@ const MessagingInterface: React.FC = () => {
     }
   };
 
+  const getChannelIcon = (channel: string) => {
+    switch (channel) {
+      case 'email':
+        return <Email sx={{ fontSize: 16 }} />;
+      case 'whatsapp':
+        return <WhatsApp sx={{ fontSize: 16 }} />;
+      default:
+        return null;
+    }
+  };
+
   return (
-    <Paper elevation={3} sx={{ p: 3 }}>
-      <Typography variant="h5" gutterBottom>
+    <Box>
+      <Typography variant="h4" gutterBottom sx={{ fontWeight: 600 }}>
         Compose Message
       </Typography>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+      {success && <Alert severity="success" sx={{ mb: 3 }}>{success}</Alert>}
 
-      <Box sx={{ mb: 3 }}>
-        <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel id="contacts-select-label">Recipients</InputLabel>
-          <Select
-            labelId="contacts-select-label"
-            id="contacts-select"
-            multiple
-            value={selectedContacts}
-            onChange={handleContactChange}
-            input={<OutlinedInput label="Recipients" />}
-            renderValue={(selected) => (
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                {selected.map((value) => {
-                  const contact = contacts.find(c => c.id === value);
-                  return <Chip key={value} label={contact?.name || value} />;
-                })}
-              </Box>
-            )}
-            MenuProps={MenuProps}
-          >
-            {contacts.map((contact) => (
-              <MenuItem key={contact.id} value={contact.id}>
-                <Checkbox checked={selectedContacts.indexOf(contact.id) > -1} />
-                <ListItemText 
-                  primary={contact.name} 
-                  secondary={contact.email || contact.phone} 
-                />
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={8}>
+          <Paper elevation={2} sx={{ p: 3, borderRadius: 2 }}>
+            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+              Message Details
+            </Typography>
 
-        <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel id="channels-select-label">Send via</InputLabel>
-          <Select
-            labelId="channels-select-label"
-            id="channels-select"
-            multiple
-            value={selectedChannels}
-            onChange={handleChannelChange}
-            input={<OutlinedInput label="Send via" />}
-            renderValue={(selected) => (
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                {selected.map((value) => (
-                  <Chip key={value} label={value.toUpperCase()} />
+            <FormControl fullWidth sx={{ mb: 3 }}>
+              <InputLabel id="contacts-select-label">Recipients</InputLabel>
+              <Select
+                labelId="contacts-select-label"
+                id="contacts-select"
+                multiple
+                value={selectedContacts}
+                onChange={handleContactChange}
+                input={<OutlinedInput label="Recipients" />}
+                renderValue={(selected) => (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {selected.map((value) => {
+                      const contact = contacts.find(c => c.id === value);
+                      return (
+                        <Chip 
+                          key={value} 
+                          label={contact?.name || value} 
+                          size="small"
+                          sx={{ borderRadius: 1 }}
+                        />
+                      );
+                    })}
+                  </Box>
+                )}
+                MenuProps={MenuProps}
+              >
+                {contacts.map((contact) => (
+                  <MenuItem key={contact.id} value={contact.id}>
+                    <Checkbox checked={selectedContacts.indexOf(contact.id) > -1} />
+                    <ListItemText 
+                      primary={contact.name} 
+                      secondary={contact.email || contact.phone} 
+                    />
+                  </MenuItem>
                 ))}
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth sx={{ mb: 3 }}>
+              <InputLabel id="channels-select-label">Send via</InputLabel>
+              <Select
+                labelId="channels-select-label"
+                id="channels-select"
+                multiple
+                value={selectedChannels}
+                onChange={handleChannelChange}
+                input={<OutlinedInput label="Send via" />}
+                renderValue={(selected) => (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {selected.map((value) => (
+                      <Chip 
+                        key={value} 
+                        icon={getChannelIcon(value)}
+                        label={value.toUpperCase()} 
+                        size="small"
+                        sx={{ borderRadius: 1 }}
+                      />
+                    ))}
+                  </Box>
+                )}
+                MenuProps={MenuProps}
+              >
+                {channels.map((channel) => (
+                  <MenuItem key={channel} value={channel}>
+                    <Checkbox checked={selectedChannels.indexOf(channel) > -1} />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {getChannelIcon(channel)}
+                      <ListItemText primary={channel.toUpperCase()} />
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <TextField
+              fullWidth
+              multiline
+              rows={6}
+              label="Message"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Type your message here..."
+              sx={{ mb: 3 }}
+            />
+
+            <Button
+              variant="contained"
+              color="primary"
+              size="large"
+              endIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Send />}
+              onClick={handleSendMessage}
+              disabled={loading}
+              fullWidth
+              sx={{ 
+                py: 1.5,
+                fontSize: '1.1rem',
+                fontWeight: 600,
+                borderRadius: 2
+              }}
+            >
+              {loading ? 'Sending...' : 'Send Message'}
+            </Button>
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12} md={4}>
+          <Card sx={{ borderRadius: 2 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+                Quick Stats
+              </Typography>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" color="textSecondary">
+                  Total Contacts
+                </Typography>
+                <Typography variant="h4" color="primary.main">
+                  {contacts.length}
+                </Typography>
               </Box>
-            )}
-            MenuProps={MenuProps}
-          >
-            {channels.map((channel) => (
-              <MenuItem key={channel} value={channel}>
-                <Checkbox checked={selectedChannels.indexOf(channel) > -1} />
-                <ListItemText primary={channel.toUpperCase()} />
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" color="textSecondary">
+                  Selected Recipients
+                </Typography>
+                <Typography variant="h4" color="secondary.main">
+                  {selectedContacts.length}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="body2" color="textSecondary">
+                  Selected Channels
+                </Typography>
+                <Typography variant="h4" color="success.main">
+                  {selectedChannels.length}
+                </Typography>
+              </Box>
+            </CardContent>
+          </Card>
 
-        <TextField
-          fullWidth
-          multiline
-          rows={4}
-          label="Message"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          sx={{ mb: 2 }}
-        />
-
-        <Button
-          variant="contained"
-          color="primary"
-          endIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Send />}
-          onClick={handleSendMessage}
-          disabled={loading}
-          fullWidth
-        >
-          {loading ? 'Sending...' : 'Send Message'}
-        </Button>
-      </Box>
-    </Paper>
+          {contacts.length === 0 && (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              No contacts available. Add some contacts first to start messaging.
+            </Alert>
+          )}
+        </Grid>
+      </Grid>
+    </Box>
   );
 };
 

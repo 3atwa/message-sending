@@ -1,8 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Replace with your Supabase URL and anon key
-const supabaseUrl = 'https://example.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2MTY5MjMyMDAsImV4cCI6MTkzMjQ5OTYwMH0.placeholder';
+// These will be set from environment variables
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || '';
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Missing Supabase environment variables. Please check your .env file.');
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
@@ -13,11 +17,12 @@ export enum UserRole {
 }
 
 // Database types
-export type User = {
+export type Profile = {
   id: string;
   email: string;
   role: UserRole;
   created_at: string;
+  updated_at: string;
 }
 
 export type Contact = {

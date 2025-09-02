@@ -19,9 +19,11 @@ import {
   Alert,
   CircularProgress,
   Tabs,
-  Tab
+  Tab,
+  Card,
+  CardContent
 } from '@mui/material';
-import { Add, Delete, Edit, Upload } from '@mui/icons-material';
+import { Add, Delete, Edit, Upload, CloudUpload } from '@mui/icons-material';
 import { useDropzone } from 'react-dropzone';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
@@ -46,8 +48,8 @@ function TabPanel(props: TabPanelProps) {
       {...other}
     >
       {value === index && (
-        <Box sx={{ p: 3 }}>
-          {children as React.ReactElement}
+        <Box sx={{ pt: 3 }}>
+          {children}
         </Box>
       )}
     </div>
@@ -100,6 +102,8 @@ const ContactManagement: React.FC = () => {
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
+    setError(null);
+    setSuccess(null);
   };
 
   // Contact CRUD operations
@@ -121,15 +125,16 @@ const ContactManagement: React.FC = () => {
 
   const handleCloseContactDialog = () => {
     setOpenContactDialog(false);
+    setError(null);
   };
 
   const handleSaveContact = async () => {
-    if (!contactName) {
+    if (!contactName.trim()) {
       setError('Contact name is required');
       return;
     }
 
-    if (!contactEmail && !contactPhone) {
+    if (!contactEmail.trim() && !contactPhone.trim()) {
       setError('Either email or phone is required');
       return;
     }
@@ -139,21 +144,19 @@ const ContactManagement: React.FC = () => {
       setError(null);
 
       const contactData = {
-        name: contactName,
-        email: contactEmail || null,
-        phone: contactPhone || null,
+        name: contactName.trim(),
+        email: contactEmail.trim() || null,
+        phone: contactPhone.trim() || null,
         created_by: user?.id
       };
 
       let result;
       if (editingContact) {
-        // Update existing contact
         result = await supabase
           .from('contacts')
           .update(contactData)
           .eq('id', editingContact.id);
       } else {
-        // Add new contact
         result = await supabase
           .from('contacts')
           .insert(contactData);
@@ -215,7 +218,6 @@ const ContactManagement: React.FC = () => {
         let parsedData: any[] = [];
 
         if (fileExtension === 'csv') {
-          // Parse CSV
           Papa.parse(result as string, {
             header: true,
             complete: (results: any) => {
@@ -228,20 +230,17 @@ const ContactManagement: React.FC = () => {
             }
           });
         } else if (['xlsx', 'xls'].includes(fileExtension || '')) {
-          // Parse Excel
           const workbook = XLSX.read(result, { type: 'binary' });
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
           parsedData = XLSX.utils.sheet_to_json(worksheet);
           processImportedData(parsedData);
         } else if (fileExtension === 'json') {
-          // Parse JSON
           parsedData = JSON.parse(result as string);
           processImportedData(parsedData);
         } else if (fileExtension === 'txt') {
-          // Parse TXT (assuming comma or tab separated)
           const text = result as string;
-          const lines = text.split('\n');
+          const lines = text.split('\n').filter(line => line.trim());
           const headers = lines[0].split(/[,\t]/).map(h => h.trim());
           
           parsedData = lines.slice(1).map(line => {
@@ -280,9 +279,7 @@ const ContactManagement: React.FC = () => {
 
   const processImportedData = (data: any[]) => {
     try {
-      // Map the imported data to our contact format
       const processedContacts = data.map(item => {
-        // Try to find name, email, and phone fields with various possible names
         const name = item.name || item.Name || item.NAME || item.contact || item.Contact || '';
         const email = item.email || item.Email || item.EMAIL || '';
         const phone = item.phone || item.Phone || item.PHONE || item.mobile || item.Mobile || item.whatsapp || item.Whatsapp || '';
@@ -298,7 +295,7 @@ const ContactManagement: React.FC = () => {
     }
   };
 
-  const { getRootProps, getInputProps } = useDropzone({ 
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
     onDrop,
     accept: {
       'text/csv': ['.csv'],
@@ -306,7 +303,8 @@ const ContactManagement: React.FC = () => {
       'application/vnd.ms-excel': ['.xls'],
       'application/json': ['.json'],
       'text/plain': ['.txt']
-    }
+    },
+    maxFiles: 1
   });
 
   const handleSaveImportedContacts = async () => {
@@ -318,7 +316,6 @@ const ContactManagement: React.FC = () => {
     try {
       setImportLoading(true);
       
-      // Add user ID to each contact
       const contactsWithUser = importedContacts.map(contact => ({
         ...contact,
         created_by: user?.id
@@ -335,7 +332,7 @@ const ContactManagement: React.FC = () => {
       setSuccess(`Successfully imported ${importedContacts.length} contacts!`);
       setImportedContacts([]);
       fetchContacts();
-      setTabValue(0); // Switch back to contacts list
+      setTabValue(0);
     } catch (error: any) {
       setImportError(`Failed to import contacts: ${error.message}`);
     } finally {
@@ -344,147 +341,195 @@ const ContactManagement: React.FC = () => {
   };
 
   return (
-    <Paper elevation={3} sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h5">Contact Management</Typography>
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" sx={{ fontWeight: 600 }}>Contact Management</Typography>
         <Button 
           variant="contained" 
           startIcon={<Add />} 
           onClick={openAddContactDialog}
+          sx={{ borderRadius: 2 }}
         >
           Add Contact
         </Button>
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+      {success && <Alert severity="success" sx={{ mb: 3 }}>{success}</Alert>}
 
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs value={tabValue} onChange={handleTabChange} aria-label="contact management tabs">
-          <Tab label="Contacts List" />
-          <Tab label="Import Contacts" />
-        </Tabs>
-      </Box>
+      <Paper elevation={2} sx={{ borderRadius: 2 }}>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <Tabs value={tabValue} onChange={handleTabChange} aria-label="contact management tabs">
+            <Tab label="Contacts List" />
+            <Tab label="Import Contacts" />
+          </Tabs>
+        </Box>
 
-      <TabPanel value={tabValue} index={0}>
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-            <CircularProgress />
-          </Box>
-        ) : contacts.length === 0 ? (
-          <Typography variant="body1" sx={{ p: 2 }}>No contacts found. Add some contacts or import them.</Typography>
-        ) : (
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Email</TableCell>
-                  <TableCell>Phone</TableCell>
-                  <TableCell>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {contacts.map((contact) => (
-                  <TableRow key={contact.id}>
-                    <TableCell>{contact.name}</TableCell>
-                    <TableCell>{contact.email || '-'}</TableCell>
-                    <TableCell>{contact.phone || '-'}</TableCell>
-                    <TableCell>
-                      <IconButton onClick={() => openEditContactDialog(contact)} size="small">
-                        <Edit />
-                      </IconButton>
-                      <IconButton onClick={() => handleDeleteContact(contact.id)} size="small" color="error">
-                        <Delete />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
-      </TabPanel>
-
-      <TabPanel value={tabValue} index={1}>
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="h6" gutterBottom>Import Contacts</Typography>
-          <Typography variant="body2" gutterBottom>
-            Upload a CSV, Excel, JSON, or TXT file containing contacts.
-          </Typography>
-          
-          {importError && <Alert severity="error" sx={{ mb: 2 }}>{importError}</Alert>}
-          
-          <Paper 
-            {...getRootProps()} 
-            sx={{ 
-              p: 3, 
-              border: '2px dashed #ccc', 
-              borderRadius: 2, 
-              textAlign: 'center',
-              cursor: 'pointer',
-              mb: 3
-            }}
-          >
-            <input {...getInputProps()} />
-            <Upload sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
-            <Typography>
-              Drag & drop a file here, or click to select a file
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              Supported formats: CSV, Excel, JSON, TXT
-            </Typography>
-          </Paper>
-
-          {importLoading && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+        <TabPanel value={tabValue} index={0}>
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
               <CircularProgress />
             </Box>
-          )}
-
-          {importedContacts.length > 0 && (
-            <>
-              <Typography variant="h6" gutterBottom>
-                {importedContacts.length} contacts found
+          ) : contacts.length === 0 ? (
+            <Box sx={{ textAlign: 'center', p: 4 }}>
+              <Typography variant="h6" color="textSecondary" gutterBottom>
+                No contacts found
               </Typography>
-              
-              <TableContainer sx={{ maxHeight: 300, mb: 2 }}>
-                <Table stickyHeader size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Name</TableCell>
-                      <TableCell>Email</TableCell>
-                      <TableCell>Phone</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {importedContacts.map((contact, index) => (
-                      <TableRow key={index}>
-                        <TableCell>{contact.name}</TableCell>
-                        <TableCell>{contact.email || '-'}</TableCell>
-                        <TableCell>{contact.phone || '-'}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleSaveImportedContacts}
-                disabled={importLoading}
-              >
-                {importLoading ? 'Importing...' : 'Import Contacts'}
+              <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+                Add contacts manually or import them from a file
+              </Typography>
+              <Button variant="contained" onClick={openAddContactDialog}>
+                Add Your First Contact
               </Button>
-            </>
+            </Box>
+          ) : (
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Email</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Phone</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {contacts.map((contact) => (
+                    <TableRow key={contact.id} hover>
+                      <TableCell>{contact.name}</TableCell>
+                      <TableCell>{contact.email || '-'}</TableCell>
+                      <TableCell>{contact.phone || '-'}</TableCell>
+                      <TableCell>
+                        <IconButton 
+                          onClick={() => openEditContactDialog(contact)} 
+                          size="small"
+                          sx={{ mr: 1 }}
+                        >
+                          <Edit />
+                        </IconButton>
+                        <IconButton 
+                          onClick={() => handleDeleteContact(contact.id)} 
+                          size="small" 
+                          color="error"
+                        >
+                          <Delete />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
           )}
-        </Box>
-      </TabPanel>
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={1}>
+          <Box>
+            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+              Import Contacts
+            </Typography>
+            <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
+              Upload a CSV, Excel, JSON, or TXT file containing contacts. The file should have columns for name, email, and/or phone.
+            </Typography>
+            
+            {importError && <Alert severity="error" sx={{ mb: 3 }}>{importError}</Alert>}
+            
+            <Card 
+              {...getRootProps()} 
+              sx={{ 
+                p: 4, 
+                border: isDragActive ? '2px dashed #1976d2' : '2px dashed #ccc', 
+                borderRadius: 2, 
+                textAlign: 'center',
+                cursor: 'pointer',
+                mb: 3,
+                backgroundColor: isDragActive ? 'action.hover' : 'background.paper',
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  borderColor: 'primary.main',
+                  backgroundColor: 'action.hover',
+                }
+              }}
+            >
+              <input {...getInputProps()} />
+              <CloudUpload sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+              <Typography variant="h6" gutterBottom>
+                {isDragActive ? 'Drop the file here' : 'Drag & drop a file here'}
+              </Typography>
+              <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
+                or click to select a file
+              </Typography>
+              <Typography variant="caption" color="textSecondary">
+                Supported formats: CSV, Excel (.xlsx, .xls), JSON, TXT
+              </Typography>
+            </Card>
+
+            {importLoading && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                <CircularProgress />
+                <Typography sx={{ ml: 2 }}>Processing file...</Typography>
+              </Box>
+            )}
+
+            {importedContacts.length > 0 && (
+              <Card sx={{ mt: 3 }}>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+                    Preview: {importedContacts.length} contacts found
+                  </Typography>
+                  
+                  <TableContainer sx={{ maxHeight: 300, mb: 3 }}>
+                    <Table stickyHeader size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>Email</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>Phone</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {importedContacts.map((contact, index) => (
+                          <TableRow key={index}>
+                            <TableCell>{contact.name}</TableCell>
+                            <TableCell>{contact.email || '-'}</TableCell>
+                            <TableCell>{contact.phone || '-'}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+
+                  <Box sx={{ display: 'flex', gap: 2 }}>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={handleSaveImportedContacts}
+                      disabled={importLoading}
+                      sx={{ borderRadius: 2 }}
+                    >
+                      {importLoading ? 'Importing...' : 'Import Contacts'}
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      onClick={() => setImportedContacts([])}
+                      disabled={importLoading}
+                      sx={{ borderRadius: 2 }}
+                    >
+                      Cancel
+                    </Button>
+                  </Box>
+                </CardContent>
+              </Card>
+            )}
+          </Box>
+        </TabPanel>
+      </Paper>
 
       {/* Contact Add/Edit Dialog */}
       <Dialog open={openContactDialog} onClose={handleCloseContactDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>{editingContact ? 'Edit Contact' : 'Add New Contact'}</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 600 }}>
+          {editingContact ? 'Edit Contact' : 'Add New Contact'}
+        </DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
@@ -514,14 +559,21 @@ const ContactManagement: React.FC = () => {
             helperText="Include country code for WhatsApp (e.g., +1234567890)"
           />
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseContactDialog}>Cancel</Button>
-          <Button onClick={handleSaveContact} variant="contained" disabled={loading}>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={handleCloseContactDialog} sx={{ borderRadius: 2 }}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleSaveContact} 
+            variant="contained" 
+            disabled={loading}
+            sx={{ borderRadius: 2 }}
+          >
             {loading ? 'Saving...' : 'Save'}
           </Button>
         </DialogActions>
       </Dialog>
-    </Paper>
+    </Box>
   );
 };
 

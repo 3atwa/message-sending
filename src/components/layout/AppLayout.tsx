@@ -1,7 +1,30 @@
 import React from 'react';
-import { Outlet, Navigate } from 'react-router-dom';
-import { Box, CssBaseline, Drawer, AppBar, Toolbar, List, Typography, Divider, IconButton, ListItem, ListItemIcon, ListItemText } from '@mui/material';
-import { Menu as MenuIcon, Mail, Contacts, Dashboard, Logout, Person } from '@mui/icons-material';
+import { Outlet, Navigate, useLocation } from 'react-router-dom';
+import { 
+  Box, 
+  CssBaseline, 
+  Drawer, 
+  AppBar, 
+  Toolbar, 
+  List, 
+  Typography, 
+  Divider, 
+  IconButton, 
+  ListItem, 
+  ListItemButton,
+  ListItemIcon, 
+  ListItemText,
+  useTheme,
+  useMediaQuery
+} from '@mui/material';
+import { 
+  Menu as MenuIcon, 
+  Mail, 
+  Contacts, 
+  Dashboard, 
+  Logout, 
+  Person 
+} from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -10,6 +33,9 @@ const drawerWidth = 240;
 const AppLayout: React.FC = () => {
   const { user, signOut, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
   if (!user) {
@@ -22,7 +48,9 @@ const AppLayout: React.FC = () => {
 
   const handleNavigation = (path: string) => {
     navigate(path);
-    setMobileOpen(false);
+    if (isMobile) {
+      setMobileOpen(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -30,49 +58,60 @@ const AppLayout: React.FC = () => {
     navigate('/login');
   };
 
+  const menuItems = [
+    { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
+    { text: 'Messaging', icon: <Mail />, path: '/messaging' },
+    { text: 'Contacts', icon: <Contacts />, path: '/contacts' },
+  ];
+
+  if (isAdmin()) {
+    menuItems.push({ text: 'User Management', icon: <Person />, path: '/users' });
+  }
+
   const drawer = (
     <div>
       <Toolbar>
-        <Typography variant="h6" noWrap component="div">
+        <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 600 }}>
           Messaging App
         </Typography>
       </Toolbar>
       <Divider />
       <List>
-        <ListItem button onClick={() => handleNavigation('/dashboard')}>
-          <ListItemIcon>
-            <Dashboard />
-          </ListItemIcon>
-          <ListItemText primary="Dashboard" />
-        </ListItem>
-        <ListItem button onClick={() => handleNavigation('/messaging')}>
-          <ListItemIcon>
-            <Mail />
-          </ListItemIcon>
-          <ListItemText primary="Messaging" />
-        </ListItem>
-        <ListItem button onClick={() => handleNavigation('/contacts')}>
-          <ListItemIcon>
-            <Contacts />
-          </ListItemIcon>
-          <ListItemText primary="Contacts" />
-        </ListItem>
-        {isAdmin() && (
-          <ListItem button onClick={() => handleNavigation('/users')}>
-            <ListItemIcon>
-              <Person />
-            </ListItemIcon>
-            <ListItemText primary="User Management" />
+        {menuItems.map((item) => (
+          <ListItem key={item.text} disablePadding>
+            <ListItemButton 
+              onClick={() => handleNavigation(item.path)}
+              selected={location.pathname === item.path}
+              sx={{
+                '&.Mui-selected': {
+                  backgroundColor: 'primary.main',
+                  color: 'white',
+                  '&:hover': {
+                    backgroundColor: 'primary.dark',
+                  },
+                  '& .MuiListItemIcon-root': {
+                    color: 'white',
+                  },
+                },
+              }}
+            >
+              <ListItemIcon>
+                {item.icon}
+              </ListItemIcon>
+              <ListItemText primary={item.text} />
+            </ListItemButton>
           </ListItem>
-        )}
+        ))}
       </List>
       <Divider />
       <List>
-        <ListItem button onClick={handleLogout}>
-          <ListItemIcon>
-            <Logout />
-          </ListItemIcon>
-          <ListItemText primary="Logout" />
+        <ListItem disablePadding>
+          <ListItemButton onClick={handleLogout}>
+            <ListItemIcon>
+              <Logout />
+            </ListItemIcon>
+            <ListItemText primary="Logout" />
+          </ListItemButton>
         </ListItem>
       </List>
     </div>
@@ -98,8 +137,11 @@ const AppLayout: React.FC = () => {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div">
-            Messaging App
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
+            {menuItems.find(item => item.path === location.pathname)?.text || 'Messaging App'}
+          </Typography>
+          <Typography variant="body2" sx={{ opacity: 0.8 }}>
+            {user.email}
           </Typography>
         </Toolbar>
       </AppBar>
@@ -134,7 +176,13 @@ const AppLayout: React.FC = () => {
       </Box>
       <Box
         component="main"
-        sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - ${drawerWidth}px)` } }}
+        sx={{ 
+          flexGrow: 1, 
+          p: 3, 
+          width: { sm: `calc(100% - ${drawerWidth}px)` },
+          backgroundColor: 'background.default',
+          minHeight: '100vh'
+        }}
       >
         <Toolbar />
         <Outlet />
